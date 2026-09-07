@@ -15,18 +15,30 @@ name: teko_std CI
 #
 # The required check is the AGGREGATOR job at the bottom, `teko_std build &&
 # run`: it fails if any leg or the language check failed.
+#
+# THIS WORKFLOW IS ALSO THE RELEASE GATE. `release.yml` calls it with
+# `workflow_call`, the same road teko-lang's own `ngen.yml` takes: a release
+# must publish only a tag this gate already proved, so the gate the release
+# runs and the gate a plain push runs are the same jobs, never a sibling
+# repeated at tag time. `push` is filtered to BRANCHES so that pushing a `v*`
+# tag does not also run this workflow standalone, racing the copy the release
+# calls for the same ref.
 
 on:
   push:
     branches: ['**']
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
+# `github.workflow` is the CALLER's name when this workflow is called, so a
+# release's gate and an ordinary CI run of the same ref are two groups and
+# cannot cancel one another.
 concurrency:
-  group: std-${{ github.ref }}
+  group: std-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

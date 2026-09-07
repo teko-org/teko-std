@@ -1,0 +1,348 @@
+name: Release
+
+# ==============================================================================
+# THIS REPOSITORY PUBLISHES A LIBRARY, NOT A COMPILER. `teko_std` ships no
+# binary: the tag's own source tree IS the deliverable, and mc's own registry
+# validator clones exactly that (mc docs/guide/27-publishing.md § 4-5). Cutting
+# a version is therefore:
+#
+#   1. run `teko_std CI` (`std.yml`) over the TAG -- both native legs and the
+#      language check, called with `workflow_call` so the release cannot drift
+#      from ordinary CI: there is one matrix, one `setup-mc`, one fixture loop;
+#   2. assert that `[package].version` in the tagged `mc.toml` equals the tag
+#      with its leading `v` stripped -- the one fact a consumer (and the
+#      registry's own R3 rule, which reads `[package].version`) has to be able
+#      to trust without cloning anything else;
+#   3. build the taught `teko_std` compiler out of the tag's own `mc.lock` pin
+#      of `teko` and compile every `[package].check` unit with it, on
+#      linux/x86_64 -- the pair the registry's validator worker runs, and the
+#      same road `std.yml`'s own leg takes (mc docs/reference/packages.md § 3
+#      "[package].check -- what the registry compiles");
+#   4. create the tag's GitHub Release -- no assets beyond the source archive
+#      the tag already is (a library, not a compiler with binaries to attach);
+#   5. announce the release to the mc package registry -- when the owner has
+#      registered the package and turned the switch on.
+#
+# HOW TO CUT A VERSION
+#
+#   git tag -a v0.1.0 -m "teko_std 0.1.0" && git push origin v0.1.0
+#
+# or, for a tag that already exists:
+#
+#   gh workflow run release.yml --ref v0.1.0
+#
+# Both roads end in the same four jobs; the ref the run is dispatched ON is the
+# version, and there is no VERSION file and no `version` input to trust.
+#
+# A version carrying a `-` suffix (`0.1.0-rc1`, `0.0.0-test`) is published as a
+# PRE-RELEASE: it never becomes "latest" and `mc pkg add` never chooses it
+# without being named explicitly (mc docs/guide/27-publishing.md § 4).
+# ==============================================================================
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # One place decides what is being released, so the jobs below cannot
+  # disagree about it. The only source of truth is this run's OWN ref: GitHub
+  # has already resolved and would check it out before any job here starts, so
+  # `github.ref_type == 'tag'` is proof enough that the tag exists.
+  version:
+    name: What is being released
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.derive.outputs.tag }}
+      version: ${{ steps.derive.outputs.version }}
+      prerelease: ${{ steps.derive.outputs.prerelease }}
+    steps:
+      - name: derive the tag and the version
+        id: derive
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -eu
+          if [ "$REF_TYPE" != tag ]; then
+            echo "::error::this run is on $REF_TYPE '$REF_NAME', not a tag -- push a v* tag or dispatch with --ref vX.Y.Z" >&2
+            exit 1
+          fi
+          tag="$REF_NAME"
+          case "$tag" in
+            v*) : ;;
+            *) echo "::error::'$tag' is not a release tag (it must start with 'v')" >&2; exit 1 ;;
+          esac
+          version="${tag#v}"
+          # X.Y.Z, optionally followed by a pre-release suffix
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::'$version' is not a X.Y.Z version" >&2
+            exit 1
+          fi
+          prerelease=false
+          case "$version" in *-*) prerelease=true ;; esac
+          echo "tag=$tag"               >>"$GITHUB_OUTPUT"
+          echo "version=$version"       >>"$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >>"$GITHUB_OUTPUT"
+          echo "releasing $tag as teko_std $version (prerelease: $prerelease)"
+
+  # The gate IS the CI workflow, called over the tag: both native legs plus
+  # the language check, exactly what a pull request gets.
+  gate:
+    name: teko_std CI
+    needs: version
+    uses: ./.github/workflows/std.yml
+
+  # A registry consumer reads `[package].version` off the tagged `mc.toml`
+  # (R3), never off the tag name -- so the two have to agree before anything
+  # is published, and disagreeing here is a clear, early failure instead of a
+  # registry validator refusing the row for a reason nobody local ever saw.
+  # The same job also proves the ONE thing the registry's validator has to
+  # prove and this repository's own CI does not: that the `[package].check`
+  # unit -- `strings.tk`, written IN teko -- still compiles once the taught
+  # compiler is built out of this tag's own `mc.lock` pin, on linux/x86_64,
+  # the pair the registry's validator worker runs.
+  manifest:
+    name: manifest version and the check unit
+    needs: [version, gate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: check out the tag
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ needs.version.outputs.tag }}
+          persist-credentials: false
+
+      - name: the manifest version has to be the tag
+        env:
+          WANT: ${{ needs.version.outputs.version }}
+        run: |
+          set -eu
+          got=$(sed -n 's/^version *= *"\(.*\)"/\1/p' mc.toml | head -1)
+          if [ -z "$got" ]; then
+            echo "::error::mc.toml carries no [package].version" >&2
+            exit 1
+          fi
+          if [ "$got" != "$WANT" ]; then
+            echo "::error::mc.toml [package].version is '$got', the tag says '$WANT'" >&2
+            exit 1
+          fi
+          echo "ok: [package].version ($got) matches the tag"
+
+      # One source of truth for the dependency: the lock row `mc build`
+      # rehashes is also the tag this checks out (README.md § Working on the
+      # library, and std.yml's own leg does the same resolution).
+      - name: resolve the teko tag the lock pins
+        id: teko
+        run: |
+          set -eu
+          ver=$(sed -n 's/^version *= *"\(.*\)"/\1/p' mc.lock | head -1)
+          if [ -z "$ver" ]; then
+            echo "::error::mc.lock carries no version for teko" >&2
+            exit 1
+          fi
+          echo "tag=v$ver" >>"$GITHUB_OUTPUT"
+          echo "pinned teko v$ver"
+
+      - name: check out the teko package's tree
+        uses: actions/checkout@v4
+        with:
+          repository: teko-org/teko-lang
+          ref: ${{ steps.teko.outputs.tag }}
+          path: deps/teko
+
+      - uses: ./.github/actions/setup-mc
+        id: mc
+        with:
+          os: linux
+          arch: x86_64
+          asset: x86_64
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: the tree hash a consumer will lock
+        run: |
+          set -eu
+          echo "mc pkg hash . = $(${{ steps.mc.outputs.mc }} pkg hash .)"
+
+      # Derived exactly as std.yml's own leg derives it: `teko.toml` stays the
+      # single source of truth, only the machine and the glibc interpreter
+      # change, and `[linker]` is dropped because the runner has `mc` write
+      # the executable itself.
+      - name: derive the linux/x86_64 config
+        run: |
+          set -eu
+          printf '%s\n' 'interp = "/lib64/ld-linux-x86-64.so.2"' 'libc   = "gnu"' >mc.target-tail
+          awk '/^\[/ { skip = ($0 == "[linker]") } !skip' teko.toml \
+            | sed -e 's#^os   = .*#os   = "linux"#' -e 's#^arch = .*#arch = "x86_64"#' \
+            | sed -e '/^arch = /r mc.target-tail' \
+            >mc.ci.toml
+          rm -f mc.target-tail
+          cat mc.ci.toml
+
+      - name: build the taught teko_std compiler
+        run: ${{ steps.mc.outputs.mc }} build . --config mc.ci.toml
+
+      # Each entry of `[package].check` is one translation unit, compiled ON
+      # ITS OWN (mc docs/reference/packages.md § 3) -- but a teko source
+      # cannot be handed to the STOCK `mc`, unlike `minicompiler/mc`'s own
+      # `check` unit: it has to go through the taught compiler this job just
+      # built, the same binary `std.yml`'s fixture loop uses. `kind = "obj"`
+      # is what makes it a translation-unit compile rather than a program
+      # link: a library module has no `main`.
+      - name: compile every [package].check unit with the taught compiler
+        run: |
+          set -eu
+          units=$(sed -n 's/^check *= *\[\(.*\)\].*/\1/p' mc.toml | tr -d '" ' | tr ',' ' ')
+          if [ -z "$units" ]; then
+            echo "::error::mc.toml names no [package].check" >&2
+            exit 1
+          fi
+          for unit in $units; do
+            echo "--- $unit"
+            sed -e "s#^entry = .*#entry = \"$unit\"#" \
+                -e "s#^out   = .*#out   = \"build/check-$(basename "$unit" .tk)\"#" \
+                -e 's#^kind  = .*#kind  = "obj"#' \
+                mc.ci.toml >mc.check.toml
+            ./build/teko build . --config mc.check.toml --entry-only
+            rm -f mc.check.toml
+            echo "    ok: $unit compiles on its own, through the taught compiler"
+          done
+
+  release:
+    name: Publish the release
+    needs: [version, gate, manifest]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: check out the tag
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ needs.version.outputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # A library carries no assets beyond the source: the registry's
+      # validator (and every consumer's `mc pkg sync`) fetches
+      # `.../archive/refs/tags/vX.Y.Z.tar.gz`, the tag's own archive, which
+      # the Release only has to make eligible (mc docs/guide/27-publishing.md
+      # § 4: "a GitHub Release, not a tag" -- the archive itself is unchanged).
+      - name: compose the release notes
+        env:
+          TAG: ${{ needs.version.outputs.tag }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -eu
+          annotation=$(git tag -l --format='%(contents)' "$TAG")
+          teko_pin=$(sed -n 's/^version *= *"\(.*\)"/\1/p' mc.lock | head -1)
+          {
+            if [ -n "$annotation" ]; then
+              printf '%s\n' "$annotation"
+            else
+              echo "teko_std $VERSION -- the standard library of teko, published for mc's registry."
+            fi
+            echo
+            echo "Proven by the \`teko_std CI\` gate over this tag: two native legs"
+            echo "(linux/x86_64, macos/aarch64), each building the taught teko compiler"
+            echo "from teko v$teko_pin and running every fixture with it, plus the"
+            echo "language check."
+            echo
+            echo "Pinned dependency: teko $teko_pin"
+            echo
+            echo "No binaries are attached: this is a source library, and the archive a"
+            echo "consumer (or the mc registry) fetches is this tag's own source archive."
+          } >"$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+
+      # Create, or update in place: a rerun of this job after a red
+      # `publish-to-registry` must not be blocked by the release it already made.
+      - name: create or update the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.version.outputs.tag }}
+          VERSION: ${{ needs.version.outputs.version }}
+          PRERELEASE: ${{ needs.version.outputs.prerelease }}
+        run: |
+          set -eu
+          pre=""
+          [ "$PRERELEASE" = "true" ] && pre="--prerelease"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "$TAG already has a release -- updating it"
+            # shellcheck disable=SC2086
+            gh release edit "$TAG" --title "teko_std $VERSION" \
+              --notes-file "$RUNNER_TEMP/notes.md" $pre
+          else
+            # shellcheck disable=SC2086
+            gh release create "$TAG" --title "teko_std $VERSION" \
+              --notes-file "$RUNNER_TEMP/notes.md" --verify-tag $pre
+          fi
+          gh release view "$TAG" --json tagName,isPrerelease \
+            --jq '{tag: .tagName, prerelease: .isPrerelease}'
+
+  # The registry side (mc docs/guide/27-publishing.md § 6). Gated by the
+  # repository variable TEKO_REGISTRY_PUBLISH: the package has to be
+  # registered once, by a person, at https://minicompiler.dev/me (§ 3) --
+  # until the owner has done that the registry answers `404 not registered`,
+  # and a job that ran anyway would be red on every release, hiding a real
+  # failure. Without the variable this job prints the plan and exits 0 -- it
+  # is never a lie about having published.
+  #
+  # `register-action@v1` needs no checkout and no secret beyond the optional
+  # `token` (guide § 6): the POST it makes carries only the git URL and the
+  # tag. `token`, when the repository secret MC_REGISTRY_TOKEN is set, makes
+  # the poll the OWNER's own request instead of an anonymous one -- it is
+  # claimed ahead of the anonymous queue and overrides "already refused for
+  # this commit" the same way the "Poll now" button on /me does (guide § 7).
+  # With the secret unset the input is empty and the action polls
+  # anonymously, exactly as it would with no `token` line at all.
+  publish-to-registry:
+    name: Publish to the mc registry
+    needs: [version, release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: announce the release to the registry
+        if: vars.TEKO_REGISTRY_PUBLISH == '1'
+        uses: minicompiler/register-action@v1
+        with:
+          tag: ${{ needs.version.outputs.tag }}
+          token: ${{ secrets.MC_REGISTRY_TOKEN }}
+
+      - name: what would have been announced
+        if: vars.TEKO_REGISTRY_PUBLISH != '1'
+        run: |
+          set -eu
+          echo "TEKO_REGISTRY_PUBLISH is not \"1\": nothing was announced, and that is not a failure."
+          echo
+          echo "With the variable set, this job runs minicompiler/register-action@v1 with"
+          echo "tag=${{ needs.version.outputs.tag }}. The action POSTs https://minicompiler.dev/poll"
+          echo "with git_url=https://github.com/$GITHUB_REPOSITORY, waits for the validator's"
+          echo "job, prints its report and asserts that"
+          echo "https://pkg.minicompiler.dev/index/teko_std.toml carries"
+          echo "version = \"${{ needs.version.outputs.version }}\"."
+          echo
+          echo "Before that can work, once and by a person (guide 27 § 3):"
+          echo "  1. log in at https://minicompiler.dev/login and accept the documents;"
+          echo "  2. POST /repos on /me with git_url = https://github.com/$GITHUB_REPOSITORY;"
+          echo "  3. depend on it once, from a project that carries [deps] teko_std -- the"
+          echo "     registry requires the teko dependency this library declares to also"
+          echo "     resolve, so \`teko\` (see teko-org/teko-lang's own release) has to be"
+          echo "     registered and published first;"
+          echo "  4. set the repository variable TEKO_REGISTRY_PUBLISH to 1;"
+          echo "  5. optionally, create an account token at https://minicompiler.dev/me >"
+          echo "     Tokens (scope poll only) and store it as the repository secret"
+          echo "     MC_REGISTRY_TOKEN, so a re-run polls as the owner instead of anonymously."

@@ -43,3 +43,10 @@ A change lands through a pull request with CI green — the required check is
 `vX.Y.Z`, and it moves **with `teko`**: `teko_std` 0.4.0 is the library `teko` 0.4.0
 compiles. Raising the dependency means raising the version row in `mc.lock`, its tree hash,
 and `MC_VERSION` to the `mc` release that teko tag is built by.
+
+## Releasing
+
+A tag is not a release: pushing `vX.Y.Z` runs the gate, checks `[package].version` in
+`mc.toml` against the tag, and only then creates the GitHub Release the registry looks for.
+See README.md § Releasing for the full sequence and what the owner still has to do once on
+the registry.

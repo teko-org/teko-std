@@ -109,11 +109,34 @@ They cannot be one file: `mc pkg hash DIR` reads `DIR/mc.toml` and takes no `--c
 `teko.toml` is deliberately not listed in `[package].files`: it says how this repository
 builds itself, not what a consumer receives.
 
-`[package].toolchain = "teko"` is what the registry classifies on, and `[package].modules`
-is the taught compiler it has to build **before** it can compile the `check` unit, which is
-written in teko. Neither key is live yet — `mc` ignores an unknown `[package]` key — so
-today the validator would hand `strings.tk` to the stock `mc`. The whole agreement is
-teko's own [`docs/specs/packages.md`](https://github.com/teko-org/teko-lang/blob/main/docs/specs/packages.md).
+`[package].language = "teko"` is what the registry classifies on (it falls back to
+`[deps].teko` when `language` is absent, but this library names it outright), and
+`[package].modules` is the taught compiler it has to build **before** it can compile the
+`check` unit, which is written in teko. `[package].version` is what a release's tag is
+checked against (`.github/workflows/release.yml`). `mc` itself ignores all three — it
+ignores an unknown `[package]` key — so a local `mc build`/`mc pkg hash` never sees them
+change. The whole agreement is teko's own
+[`docs/specs/packages.md`](https://github.com/teko-org/teko-lang/blob/main/docs/specs/packages.md).
+
+## Releasing
+
+A `v*` tag is what `.github/workflows/release.yml` turns into a package: pushing one runs
+`teko_std CI` (`std.yml`) over the tag, checks that `[package].version` in `mc.toml` matches
+the tag, builds the taught compiler out of the tag's own `mc.lock` pin and compiles the
+`[package].check` unit with it, then creates the tag's **GitHub Release** — the registry
+publishes only a tag that has one, never a bare tag (mc's own
+[docs/guide/27-publishing.md](https://github.com/minicompiler/mc/blob/main/docs/guide/27-publishing.md)
+§ 4). Announcing that release to the registry needs, once and by the owner:
+
+1. the repository registered at <https://minicompiler.dev/me> (§ 3 of the same guide);
+2. its dependency, `teko` (`[deps] teko = "0.4.0"`, the pinned version above), registered and
+   published first — the registry resolves `teko_std`'s own `[deps]` the same way `mc pkg`
+   does, so a consumer's build fails until `teko` itself is a published package;
+3. the repository variable `TEKO_REGISTRY_PUBLISH` set to `1` — without it the release still
+   happens, but the announcement step only prints what it would have sent;
+4. optionally, an account token from `/me` > Tokens (scope `poll` only), stored as the
+   repository secret `MC_REGISTRY_TOKEN`, so a re-run polls as the owner rather than
+   anonymously (guide § 7).
 
 ## Contributing
 
