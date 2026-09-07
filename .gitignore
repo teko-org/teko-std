@@ -1,0 +1,20 @@
+### Build artefacts ###
+build/
+*.o
+*.obj
+.DS_Store
+
+### The dependency's tree ###
+# `deps/teko` is a checkout of teko-lang at the tag `mc.lock` pins, put there
+# by README.md's one command and by CI; it is never committed here.
+deps/
+
+### The mc toolchain a CI job unpacks ###
+.mc-toolchain/
+
+### Host configs derived from `teko.toml` ###
+# `mc.macos.toml` and `mc.<fixture>.toml` are born from a `sed` over the
+# versioned `teko.toml` and are transient to one host or one loop. The two
+# versioned files are `teko.toml` and `mc.toml`, and `mc.lock` beside them.
+/mc.*.toml
+!/mc.toml

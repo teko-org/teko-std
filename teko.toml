@@ -1,0 +1,62 @@
+# teko.toml -- how this repository is BUILT, and nothing else:
+#
+#   mc build . --config teko.toml         # the taught compiler, then the test
+#
+# The package manifest is `mc.toml` and holds only `[package]`; the two roles
+# cannot share one file once the package IS the repository (`mc pkg hash DIR`
+# reads `DIR/mc.toml` and takes no `--config`). This file is deliberately NOT
+# in `[package].files`: it describes how this repository builds itself, not
+# what a consumer receives.
+#
+# Two steps come out of a build. First the taught compiler: `[compiler].core`
+# names the part of `mc` that has no target and `[compiler].modules` names the
+# three files of the `teko` package that teach the language on top of it, so
+# `build/teko` is teko 0.4.0 itself, built here from the dependency's own
+# sources. Then `tests/strings_test.tk` is compiled BY that binary and linked,
+# and its exit code is the assertion.
+#
+# `user.mc` is the PROJECT's own file and is listed LAST: a package never
+# defines `user_init` (mc's docs/reference/packages.md § 3), it exports
+# `<name>_init()`, and the project decides the order of initialisation.
+#
+# The `teko` tree the modules come from is `deps/teko`, a checkout of
+# teko-lang at v0.4.0 that `mc.lock` pins by tree hash -- README.md § Working
+# on the library has the one command that puts it there.
+#
+# `os = "linux"` / `arch = "x86_64"` matches the CI runner (ubuntu-latest); a
+# host that is another pair derives its own config from this file with `sed`
+# (README.md) instead of editing it.
+#
+# `[linker]` is the LOCAL road, on a host whose own `cc` links what `mc`
+# emitted. CI drops the whole block: since mc 0.12.0 `mc build` writes the
+# executable itself on both legs, and what has to be right there is `[target]`
+# -- on a glibc runner, the interpreter and the libc family, because the
+# default is musl and a musl-interp binary is `mc: cannot run` on ubuntu.
+
+[project]
+name  = "teko_std"
+entry = "tests/strings_test.tk"
+out   = "build/strings_test"
+kind  = "exe"
+
+[target]
+os   = "linux"
+arch = "x86_64"
+
+[compiler]
+core    = "<mc/core_min>"
+modules = ["<teko/core_teko.mc>", "<teko/teko.tk>", "user.mc"]
+out     = "build/teko"
+
+[linker]
+cmd  = "cc"
+args = ["-o", "{out}", "{obj}"]
+
+# the static estimate is a function of source bytes and a library this small
+# does not land anywhere near it; `mc limits . --config teko.toml` is what
+# tells whether that still holds once the library grows.
+[limits]
+tolerance = 1.0
+
+[deps]
+teko = "0.4.0"

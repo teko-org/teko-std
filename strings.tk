@@ -1,0 +1,156 @@
+// strings.tk -- what a teko program needs over `str` and the runtime does not
+// already give it. `str` is a NUL-terminated string by pointer (teko's
+// docs/reference/types.md), so every function here walks bytes: `ld8` reads
+// one, `st8` writes one, and a length is the walk to the NUL that
+// `tk_str_len` makes.
+//
+// TWO KINDS OF ANSWER, and the difference is the whole memory contract:
+//
+//   a VIEW      str_ends_with, str_index_of and str_trim_start read through
+//               `tk_str_slice` -- pointer arithmetic, no allocation at all
+//   a NEW str   str_trim, str_to_upper and str_to_lower cannot be views: a
+//               trailing NUL and an upper-cased byte are not in the original,
+//               so each returns a block of its own from the runtime arena,
+//               and `str_free` is what hands it back
+//
+// The arena is teko's own (lib/rt.tk): 4 MiB with a free list per size class,
+// so a `str_free`d block is reused by the next call and a loop that trims a
+// million lines does not grow.
+
+#include <teko/lib/rt.tk>
+
+// one byte of `s`, zero-extended -- an index past the NUL reads whatever the
+// allocation holds, exactly as it does in C
+i64 str_at(str s, i64 i) {
+    return ld8(s + i);
+}
+
+// the ASCII blanks `str_trim` and `str_trim_start` remove
+bool str_is_space(i64 c) {
+    if (c == ' ')  return true;
+    if (c == '\t') return true;
+    if (c == '\n') return true;
+    if (c == '\r') return true;
+    return false;
+}
+
+// the bytes `[from, to)` of `s`, as a NEW NUL-terminated str. `rt_alloc`
+// hands out zeroed bytes, so the terminator is already written. `from` below
+// zero, `to` past the end of `s` or `from` past `to` panics, the same guard
+// the runtime's own array bounds checks use, rather than reading past the
+// allocation.
+str str_dup_range(str s, i64 from, i64 to) {
+    i64 len = tk_str_len(s);
+    if (from < 0)  panic("str_dup_range: range out of bounds");
+    if (to > len)  panic("str_dup_range: range out of bounds");
+    if (from > to) panic("str_dup_range: range out of bounds");
+    i64 n = to - from;
+    str dst = rt_alloc(n + 1);
+    i64 i = 0;
+    while (i < n) {
+        st8(dst + i, ld8(s + from + i));
+        i = i + 1;
+    }
+    return dst;
+}
+
+// gives a str this module allocated back to the arena. Never call it on a
+// literal or on a view: neither owns a block.
+void str_free(str s) {
+    rt_free(s, tk_str_len(s) + 1);
+}
+
+bool str_equals(str a, str b) {
+    i64 n = tk_str_len(a);
+    if (n != tk_str_len(b)) return false;
+    i64 i = 0;
+    while (i < n) {
+        if (ld8(a + i) != ld8(b + i)) return false;
+        i = i + 1;
+    }
+    return true;
+}
+
+bool str_starts_with(str s, str prefix) {
+    i64 n = tk_str_len(prefix);
+    i64 i = 0;
+    while (i < n) {
+        i64 c = ld8(s + i);
+        if (c == 0) return false;
+        if (c != ld8(prefix + i)) return false;
+        i = i + 1;
+    }
+    return true;
+}
+
+bool str_ends_with(str s, str suffix) {
+    i64 n = tk_str_len(suffix);
+    i64 m = tk_str_len(s);
+    if (n > m) return false;
+    return str_equals(tk_str_slice(s, m - n), suffix);
+}
+
+// the index of the first occurrence of `needle` in `s`, or -1. An empty
+// needle is at 0, where every string has it.
+i64 str_index_of(str s, str needle) {
+    i64 n = tk_str_len(needle);
+    i64 m = tk_str_len(s);
+    if (n > m) return -1;
+    i64 i = 0;
+    while (i <= m - n) {
+        if (str_starts_with(tk_str_slice(s, i), needle)) return i;
+        i = i + 1;
+    }
+    return -1;
+}
+
+bool str_contains(str s, str needle) {
+    return str_index_of(s, needle) >= 0;
+}
+
+// `s` without its leading blanks: a VIEW into `s`, so it is not freed and it
+// dies with the string it came from
+str str_trim_start(str s) {
+    i64 i = 0;
+    while (str_is_space(ld8(s + i))) i = i + 1;
+    return tk_str_slice(s, i);
+}
+
+// `s` without its leading and trailing blanks, as a NEW str: the end has to
+// carry a NUL of its own, which is a byte the original does not have there
+str str_trim(str s) {
+    i64 m = tk_str_len(s);
+    i64 from = 0;
+    while (from < m && str_is_space(ld8(s + from))) from = from + 1;
+    i64 to = m;
+    while (to > from && str_is_space(ld8(s + to - 1))) to = to - 1;
+    return str_dup_range(s, from, to);
+}
+
+// ASCII only: a byte outside `a`-`z` / `A`-`Z` is copied unchanged, and a
+// multi-byte code point is left exactly as it was
+str str_to_upper(str s) {
+    i64 n = tk_str_len(s);
+    str dst = rt_alloc(n + 1);
+    i64 i = 0;
+    while (i < n) {
+        i64 c = ld8(s + i);
+        if (c >= 'a' && c <= 'z') c = c - 32;
+        st8(dst + i, c);
+        i = i + 1;
+    }
+    return dst;
+}
+
+str str_to_lower(str s) {
+    i64 n = tk_str_len(s);
+    str dst = rt_alloc(n + 1);
+    i64 i = 0;
+    while (i < n) {
+        i64 c = ld8(s + i);
+        if (c >= 'A' && c <= 'Z') c = c + 32;
+        st8(dst + i, c);
+        i = i + 1;
+    }
+    return dst;
+}

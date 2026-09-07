@@ -1,0 +1,33 @@
+# mc.toml -- this repository, as the package `teko_std`. It carries NO
+# [project]: that absence is what classifies the name as a LIBRARY rather than
+# a tool, and the build config is the separate `teko.toml`, because
+# `mc pkg hash DIR` reads `DIR/mc.toml` and takes no `--config`.
+#
+# The tree hash digests these BYTES, comments included, so this header is
+# written once and left alone.
+#
+# There is no `lib` key on purpose: `teko_std` is one FLAT library and every
+# entry is named in full, `#include <teko_std/strings.tk>`. A bare
+# `<teko_std>` has no answer and is refused, which is the agreement
+# teko's own docs/specs/packages.md records.
+#
+# `toolchain` and `modules` are the two keys the registry will read and `mc`
+# ignores today (it ignores an unknown [package] key): `toolchain = "teko"` is
+# what classifies the package, and `modules` is the taught compiler the
+# registry has to BUILD before it can compile the `check` unit -- the three
+# files that make a working teko compiler out of `<mc/core_min>`, in this
+# order. `<teko/user.mc>` is teko's own, and it is right here and only here:
+# a validator has no project of its own to carry a `user_init`.
+
+[package]
+name      = "teko_std"
+toolchain = "teko"
+licence   = "MIT OR Apache-2.0"
+modules   = ["<teko/core_teko.mc>", "<teko/teko.tk>", "<teko/user.mc>"]
+files     = [
+    "strings.tk",
+]
+check     = ["strings.tk"]
+
+[deps]
+teko = "0.4.0"
