@@ -1,16 +1,9 @@
-# written by `mc pkg sync` -- do not edit (mc's docs/reference/packages.md § 4)
-#
-# HAND-WRITTEN, and this is the one thing here that is not a normal package
-# road: `teko` is not published yet (the registry index has no `teko.toml`),
-# so `mc pkg sync` cannot resolve it and cannot write this file. The row below
-# is what `sync` will write once the package is published, and it already does
-# the job a lock exists for -- `mc build` REHASHES `deps/teko` on every build
-# and refuses on any disagreement, so the tree this repository compiles
-# against is nailed to teko-lang's v0.4.0 tag, byte for byte.
+# written by `mc pkg sync` -- do not edit (docs/reference/packages.md)
+
 [[package]]
 name        = "teko"
-version     = "0.4.0"
+version     = "0.4.1"
 lib         = "lib/rt.tk"
-sha256      = "2ca07ee87a1e47af54a0b7a390b6a0cdafb376e6ef33e34f0a2f821f4bba1a71"
+sha256      = "3e6feff8e981912423654dbc12ca6d4948efa89d21ea02128b7636f0683791b1"
 deps        = []
 permissions = []

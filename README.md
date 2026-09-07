@@ -12,8 +12,8 @@ One **flat** library, and every entry is named in full — the extension is spel
 because `mc` drops a trailing `.mc` from an angle-bracket name and does not drop `.tk`.
 There is no `lib` key in the manifest, so a bare `<teko_std>` has no answer and is refused.
 
-The library is versioned in **lockstep** with the compiler: `teko_std` 0.4.0 is the library
-`teko` 0.4.0 compiles, and the two are released together.
+The library is versioned in **lockstep** with the compiler: `teko_std` 0.4.1 is the library
+`teko` 0.4.1 compiles, and the two are released together.
 
 ## What is in it
 
@@ -30,8 +30,8 @@ own build config and includes the library by package name:
 
 ```toml
 [deps]
-teko     = "0.4.0"
-teko_std = "0.4.0"
+teko     = "0.4.1"
+teko_std = "0.4.1"
 
 [compiler]
 core    = "<mc/core_min>"
@@ -54,22 +54,27 @@ the project's own.
 ## Working on the library
 
 `mc` is pinned by [`MC_VERSION`](MC_VERSION), and the pin of a library is the pin of the
-compiler tag it is locked to: `teko` v0.4.0 carries `MC_VERSION` 0.15.13 and is built by
+compiler tag it is locked to: `teko` v0.4.1 carries `MC_VERSION` 0.15.18 and is built by
 that release, so this repository names the same one. It rises when the `teko` tag in
 [`mc.lock`](mc.lock) rises.
 
-The `teko` package is **not published yet**, so its tree is vendored — the offline road
-`mc` already has, with the lock rehashed on every build:
+`teko` is published on the mc registry, so the dependency comes the normal road:
+
+```sh
+mc pkg sync --yes
+```
+
+fetches `teko` at the version `[deps]` names into `~/.mc/libs/teko/`, checks it against the
+tree hash the registry published, and writes `mc.lock`. The offline road is a vendored
+checkout of the same tag, which `mc build` rehashes against the lock on every build:
 
 ```sh
 git clone --branch "v$(sed -n 's/^version *= *"\(.*\)"/\1/p' mc.lock | head -1)" \
     https://github.com/teko-org/teko-lang.git deps/teko
 ```
 
-`[replace] teko = "../teko-lang"` is **not** the road here, and cannot be until the package
-exists: `mc` resolves a dependency's tree before it reads `[replace]`, so a name that is
-neither vendored nor installed stops at `mc: teko 0.4.0 is not fetched` however the
-replacement is spelled. `deps/teko` is what a build reads, and `mc.lock` is what pins it.
+CI takes the vendored road (`.github/workflows/std.yml`), so a runner never depends on the
+registry being up; either way the tree a build reads is the one `mc.lock` pins, byte for byte.
 
 Then, from the repository root:
 
@@ -130,7 +135,7 @@ publishes only a tag that has one, never a bare tag (mc's own
 § 4). Announcing that release to the registry needs, once and by the owner:
 
 1. the repository registered at <https://minicompiler.dev/me> (§ 3 of the same guide);
-2. its dependency, `teko` (`[deps] teko = "0.4.0"`, the pinned version above), registered and
+2. its dependency, `teko` (`[deps] teko = "0.4.1"`, the pinned version above), registered and
    published first — the registry resolves `teko_std`'s own `[deps]` the same way `mc pkg`
    does, so a consumer's build fails until `teko` itself is a published package;
 3. the repository variable `TEKO_REGISTRY_PUBLISH` set to `1` — without it the release still
