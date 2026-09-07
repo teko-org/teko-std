@@ -1,0 +1,72 @@
+// strings_test.tk -- every function `strings.tk` exports, exercised once, and
+// the arena checked back to the floor it started at: the allocating three
+// (str_trim, str_to_upper, str_to_lower) are the only ones that take a block,
+// and str_free is what gives it back, so `rt_live()` at the end is the proof
+// that this file leaks nothing.
+//
+// The exit code is the assertion: each check has a number of its own, and 42
+// means every one of them passed.
+//
+// expect-exit: 42
+
+#include "../strings.tk"
+
+i64 main() {
+    i64 floor = rt_live();
+
+    if (str_at("teko", 0) != 't')          return 1;
+    if (str_at("teko", 4) != 0)            return 2;
+
+    if (!str_equals("teko", "teko"))       return 3;
+    if (str_equals("teko", "Teko"))        return 4;
+    if (str_equals("teko", "tek"))         return 5;
+    if (str_equals("tek", "teko"))         return 6;
+
+    if (!str_starts_with("teko_std", "teko")) return 7;
+    if (str_starts_with("teko", "teko_std")) return 8;
+    if (!str_starts_with("teko", ""))      return 9;
+
+    if (!str_ends_with("teko_std", "_std")) return 10;
+    if (str_ends_with("teko_std", "std_")) return 11;
+    if (str_ends_with("std", "teko_std"))  return 12;
+
+    if (str_index_of("hello world", "world") != 6) return 13;
+    if (str_index_of("hello world", "hello") != 0) return 14;
+    if (str_index_of("hello", "z") != -1)  return 15;
+    if (str_index_of("hi", "hi there") != -1) return 16;
+    if (str_index_of("hello", "") != 0)    return 17;
+    if (!str_contains("hello world", "o w")) return 18;
+    if (str_contains("hello", "W"))        return 19;
+
+    str head = str_trim_start("  \t hi");
+    if (!str_equals(head, "hi"))           return 20;
+    if (rt_live() != floor)                return 21;    // a view takes no block
+
+    str t = str_trim("  hi there \r\n");
+    if (!str_equals(t, "hi there"))        return 22;
+    if (rt_live() != floor + 1)            return 23;
+    str_free(t);
+    if (rt_live() != floor)                return 24;
+
+    str empty = str_trim("   ");
+    if (tk_str_len(empty) != 0)            return 25;
+    str_free(empty);
+
+    str up = str_to_upper("teko_std 0.4!");
+    if (!str_equals(up, "TEKO_STD 0.4!"))  return 26;
+    str low = str_to_lower(up);
+    if (!str_equals(low, "teko_std 0.4!")) return 27;
+    if (rt_live() != floor + 2)            return 28;
+    str_free(up);
+    str_free(low);
+
+    if (str_is_space(' ') == false)        return 29;
+    if (str_is_space('x'))                 return 30;
+
+    str part = str_dup_range("teko_std", 5, 8);
+    if (!str_equals(part, "std"))          return 31;
+    str_free(part);
+
+    if (rt_live() != floor)                return 32;    // nothing left behind
+    return 42;
+}
