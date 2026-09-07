@@ -1,8 +1,8 @@
 // strings_test.tk -- every function `strings.tk` exports, exercised once, and
-// the arena checked back to the floor it started at: the allocating three
-// (str_trim, str_to_upper, str_to_lower) are the only ones that take a block,
-// and str_free is what gives it back, so `rt_live()` at the end is the proof
-// that this file leaks nothing.
+// the arena checked back to the floor it started at: the allocating four
+// (str_dup_range, str_trim, str_to_upper, str_to_lower) are the only ones
+// that take a block, and str_free is what gives it back, so `rt_live()` at
+// the end is the proof that this file leaks nothing.
 //
 // The exit code is the assertion: each check has a number of its own, and 42
 // means every one of them passed.

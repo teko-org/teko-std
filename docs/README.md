@@ -26,7 +26,7 @@ runtime arena for a block of its own, and then `str_free` is what hands that blo
 | `i64 str_index_of(str s, str needle)` | index of the first `needle` in `s`, or `-1`; an empty needle is at `0` | no |
 | `bool str_contains(str s, str needle)` | `str_index_of(s, needle) >= 0` | no |
 | `str str_trim_start(str s)` | `s` without its leading blanks — a **view** into `s` | no |
-| `str str_dup_range(str s, i64 from, i64 to)` | the bytes `[from, to)` as a new string | **yes** |
+| `str str_dup_range(str s, i64 from, i64 to)` | the bytes `[from, to)` as a new string; panics on an invalid range, like the runtime's array guards | **yes** |
 | `str str_trim(str s)` | `s` without its leading and trailing blanks | **yes** |
 | `str str_to_upper(str s)` | `s` with `a`-`z` raised; every other byte copied | **yes** |
 | `str str_to_lower(str s)` | `s` with `A`-`Z` lowered; every other byte copied | **yes** |

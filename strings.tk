@@ -35,10 +35,16 @@ bool str_is_space(i64 c) {
 }
 
 // the bytes `[from, to)` of `s`, as a NEW NUL-terminated str. `rt_alloc`
-// hands out zeroed bytes, so the terminator is already written.
+// hands out zeroed bytes, so the terminator is already written. `from` below
+// zero, `to` past the end of `s` or `from` past `to` panics, the same guard
+// the runtime's own array bounds checks use, rather than reading past the
+// allocation.
 str str_dup_range(str s, i64 from, i64 to) {
+    i64 len = tk_str_len(s);
+    if (from < 0)  panic("str_dup_range: range out of bounds");
+    if (to > len)  panic("str_dup_range: range out of bounds");
+    if (from > to) panic("str_dup_range: range out of bounds");
     i64 n = to - from;
-    if (n < 0) n = 0;
     str dst = rt_alloc(n + 1);
     i64 i = 0;
     while (i < n) {

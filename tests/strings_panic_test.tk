@@ -1,0 +1,13 @@
+// strings_panic_test.tk -- str_dup_range on an invalid range: `to` past the
+// end of `s`, which used to read past the allocation. The guard panics
+// instead, the same exit(70) the runtime's own array bounds checks use.
+//
+// expect-exit: 70
+
+#include "../strings.tk"
+
+i64 main() {
+    str s = "teko";
+    str bad = str_dup_range(s, 1, 99);
+    return 0;
+}
