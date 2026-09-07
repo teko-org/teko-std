@@ -1,0 +1,158 @@
+name: teko_std CI
+
+# Builds the library and RUNS its fixtures, on two native legs -- linux/x86_64
+# (ubuntu-latest) and macos/aarch64 (macos-latest). Nothing is cross-compiled:
+# each leg downloads the `mc` release built for its own pair, builds the taught
+# teko compiler THERE out of the `teko` package's own sources, compiles every
+# `tests/*.tk` with that binary and compares the exit code with the fixture's
+# own `// expect-exit: N`. The exit code is the oracle.
+#
+# The `teko` tree is not fetched from the registry: it is not published yet, so
+# `deps/teko` is a checkout of teko-org/teko-lang at the tag `mc.lock` pins --
+# the vendored road mc's docs/reference/packages.md § 2 describes, with the lock
+# rehashed on every build, so the bytes are nailed exactly as a published
+# package's would be.
+#
+# The required check is the AGGREGATOR job at the bottom, `teko_std build &&
+# run`: it fails if any leg or the language check failed.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: std-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.os }}/${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            os: linux
+            arch: x86_64
+            asset: x86_64
+          - runner: macos-latest
+            os: macos
+            arch: aarch64
+            asset: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      # one source of truth for the dependency: the lock row `mc build`
+      # rehashes is also the tag this checks out
+      - name: resolve the teko tag the lock pins
+        id: teko
+        run: |
+          set -eu
+          ver=$(sed -n 's/^version *= *"\(.*\)"/\1/p' mc.lock | head -1)
+          if [ -z "$ver" ]; then
+            echo "::error::mc.lock carries no version for teko" >&2
+            exit 1
+          fi
+          echo "tag=v$ver" >>"$GITHUB_OUTPUT"
+          echo "pinned teko v$ver"
+
+      - name: check out the teko package's tree
+        uses: actions/checkout@v4
+        with:
+          repository: teko-org/teko-lang
+          ref: ${{ steps.teko.outputs.tag }}
+          path: deps/teko
+
+      - uses: ./.github/actions/setup-mc
+        id: mc
+        with:
+          os: ${{ matrix.os }}
+          arch: ${{ matrix.arch }}
+          asset: ${{ matrix.asset }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # `teko.toml` names the CI's own linux/x86_64 pair; every other leg
+      # derives its config from that one file instead of carrying a copy
+      - name: derive the config for this leg
+        run: |
+          set -eu
+          sed -e 's/^os   = .*/os   = "${{ matrix.os }}"/' \
+              -e 's/^arch = .*/arch = "${{ matrix.arch }}"/' \
+              teko.toml >mc.ci.toml
+          cat mc.ci.toml
+
+      - name: build the taught compiler and the entry fixture
+        run: ${{ steps.mc.outputs.mc }} build . --config mc.ci.toml
+
+      # every fixture, compiled by the compiler that was just built and RUN,
+      # its exit code compared with the `// expect-exit: N` in its own header
+      - name: run every fixture
+        run: |
+          set -eu
+          fails=0
+          for src in tests/*.tk; do
+            n=$(basename "$src" .tk)
+            want=$(sed -n 's#^// expect-exit: *##p' "$src" | head -1)
+            if [ -z "$want" ]; then
+              echo "FAIL $n: no // expect-exit: header"
+              fails=$((fails + 1))
+              continue
+            fi
+            sed -e "s#^entry = .*#entry = \"tests/$n.tk\"#" \
+                -e "s#^out   = .*#out   = \"build/$n\"#" \
+                mc.ci.toml >"mc.$n.toml"
+            ./build/teko build . --config "mc.$n.toml" --entry-only
+            rm -f "mc.$n.toml"
+            set +e
+            "./build/$n"
+            got=$?
+            set -e
+            if [ "$got" = "$want" ]; then
+              echo "ok   $n exit=$got"
+            else
+              echo "FAIL $n exit=$got want=$want"
+              fails=$((fails + 1))
+            fi
+          done
+          echo "fixtures: $(ls tests/*.tk | wc -l | tr -d ' '), failures: $fails"
+          [ "$fails" = 0 ]
+
+      - name: the package tree hash
+        run: |
+          set -eu
+          {
+            echo "### teko_std on ${{ matrix.os }}/${{ matrix.arch }}"
+            echo
+            echo '```'
+            echo "mc          $(${{ steps.mc.outputs.mc }} --version)"
+            echo "teko        ${{ steps.teko.outputs.tag }}"
+            echo "tree hash   $(${{ steps.mc.outputs.mc }} pkg hash .)"
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+
+  language:
+    name: language
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh scripts/check-language.sh
+
+  aggregate:
+    name: teko_std build && run
+    runs-on: ubuntu-latest
+    needs: [build, language]
+    if: always()
+    steps:
+      - name: every leg has to be green
+        run: |
+          set -eu
+          echo "build:    ${{ needs.build.result }}"
+          echo "language: ${{ needs.language.result }}"
+          [ "${{ needs.build.result }}" = success ] || exit 1
+          [ "${{ needs.language.result }}" = success ] || exit 1
