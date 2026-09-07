@@ -26,6 +26,12 @@
 # `os = "linux"` / `arch = "x86_64"` matches the CI runner (ubuntu-latest); a
 # host that is another pair derives its own config from this file with `sed`
 # (README.md) instead of editing it.
+#
+# `[linker]` is the LOCAL road, on a host whose own `cc` links what `mc`
+# emitted. CI drops the whole block: since mc 0.12.0 `mc build` writes the
+# executable itself on both legs, and what has to be right there is `[target]`
+# -- on a glibc runner, the interpreter and the libc family, because the
+# default is musl and a musl-interp binary is `mc: cannot run` on ubuntu.
 
 [project]
 name  = "teko_std"

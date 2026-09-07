@@ -37,14 +37,29 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # `arch` is what `mc`'s `[target]` and `mc --host` call the machine
+          # (`aarch64`, never `arm64`); `asset` is what the release file is
+          # called (`arm64`). They differ, so both are written out.
+          #
+          # `target_tail` is what the leg adds to `[target]`. Since mc 0.12.0
+          # the Linux executable slot is filled: `mc build` writes a dynamic
+          # ELF ITSELF, whatever `[linker]` says, and its loader and soname
+          # default to musl -- so on a glibc runner the binary it wrote is
+          # `mc: cannot run`. Naming the glibc pair is what makes the taught
+          # compiler runnable there. macOS adds nothing: the built-in
+          # `macho-exe` backend writes and signs the executable itself.
           - runner: ubuntu-latest
             os: linux
             arch: x86_64
             asset: x86_64
+            target_tail: |
+              interp = "/lib64/ld-linux-x86-64.so.2"
+              libc   = "gnu"
           - runner: macos-latest
             os: macos
             arch: aarch64
             asset: arm64
+            target_tail: ''
     steps:
       - uses: actions/checkout@v4
 
@@ -77,14 +92,26 @@ jobs:
           asset: ${{ matrix.asset }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # `teko.toml` names the CI's own linux/x86_64 pair; every other leg
-      # derives its config from that one file instead of carrying a copy
+      # `teko.toml` is the single source of truth of a build and is never
+      # edited here: the leg config is DERIVED from it, so `[project]`,
+      # `[compiler]` and `[limits]` cannot drift between the legs. Only the
+      # machine changes -- and the `[linker]`, which is dropped: it is the
+      # local road on a host whose `cc` links, while on a runner `mc` writes
+      # the executable itself and `[target]` is what has to be right.
       - name: derive the config for this leg
+        env:
+          MC_OS: ${{ matrix.os }}
+          MC_ARCH: ${{ matrix.arch }}
+          MC_TARGET_TAIL: ${{ matrix.target_tail }}
         run: |
           set -eu
-          sed -e 's/^os   = .*/os   = "${{ matrix.os }}"/' \
-              -e 's/^arch = .*/arch = "${{ matrix.arch }}"/' \
-              teko.toml >mc.ci.toml
+          printf '%s' "$MC_TARGET_TAIL" >mc.target-tail
+          awk '/^\[/ { skip = ($0 == "[linker]") } !skip' teko.toml \
+            | sed -e "s#^os   = .*#os   = \"$MC_OS\"#" \
+                  -e "s#^arch = .*#arch = \"$MC_ARCH\"#" \
+            | sed -e "/^arch = /r mc.target-tail" \
+            >mc.ci.toml
+          rm -f mc.target-tail
           cat mc.ci.toml
 
       - name: build the taught compiler and the entry fixture
