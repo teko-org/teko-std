@@ -28,7 +28,7 @@
 
 [package]
 name      = "teko_std"
-version   = "0.1.0"
+version   = "0.4.0"
 language  = "teko"
 licence   = "MIT OR Apache-2.0"
 modules   = ["<teko/core_teko.mc>", "<teko/teko.tk>", "<teko/user.mc>"]
