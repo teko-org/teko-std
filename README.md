@@ -113,9 +113,10 @@ builds itself, not what a consumer receives.
 `[deps].teko` when `language` is absent, but this library names it outright), and
 `[package].modules` is the taught compiler it has to build **before** it can compile the
 `check` unit, which is written in teko. `[package].version` is what a release's tag is
-checked against (`.github/workflows/release.yml`). `mc` itself ignores all three — it
-ignores an unknown `[package]` key — so a local `mc build`/`mc pkg hash` never sees them
-change. The whole agreement is teko's own
+checked against (`.github/workflows/release.yml`). `mc` itself reads none of the three — it
+ignores unknown `[package]` keys — so a local `mc build` is unaffected by them; `mc pkg
+hash` still moves when they change, since it digests the bytes of `mc.toml`. The whole
+agreement is teko's own
 [`docs/specs/packages.md`](https://github.com/teko-org/teko-lang/blob/main/docs/specs/packages.md).
 
 ## Releasing

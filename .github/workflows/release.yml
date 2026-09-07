@@ -161,6 +161,7 @@ jobs:
           repository: teko-org/teko-lang
           ref: ${{ steps.teko.outputs.tag }}
           path: deps/teko
+          persist-credentials: false
 
       - uses: ./.github/actions/setup-mc
         id: mc

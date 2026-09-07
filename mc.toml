@@ -12,7 +12,7 @@
 # teko's own docs/specs/packages.md records.
 #
 # `version`, `language` and `modules` are keys the registry reads and `mc`
-# ignores today (it ignores an unknown [package] key). `version` is what the
+# ignores today (it ignores unknown [package] keys). `version` is what the
 # registry's R3 compares a tag against: `[package].version` must equal the
 # GitHub Release tag with its leading `v` stripped, or the release is refused
 # -- the same check `mc pkg add`/`mc update` make of an INDEX row (mc's own
