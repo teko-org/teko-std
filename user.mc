@@ -1,0 +1,8 @@
+// user.mc -- the PROJECT's own file, not the `teko` package's (mc's
+// docs/reference/packages.md § 3: "a package never defines `user_init`; it
+// exports `<name>_init()` and the project's own module calls it").
+// `teko.toml`'s `[compiler].modules` lists this LAST, after `<teko/teko.tk>`,
+// so `teko_init()` is already declared when `user_init` calls it.
+void user_init() {
+    teko_init();
+}
