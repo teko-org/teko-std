@@ -25,7 +25,7 @@ name: Release
 #
 # HOW TO CUT A VERSION
 #
-#   git tag -a v0.4.0 -m "teko_std 0.1.0" && git push origin v0.4.0
+#   git tag -a v0.4.0 -m "teko_std 0.4.0" && git push origin v0.4.0
 #
 # or, for a tag that already exists:
 #
