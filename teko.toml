@@ -11,7 +11,7 @@
 # Two steps come out of a build. First the taught compiler: `[compiler].core`
 # names the part of `mc` that has no target and `[compiler].modules` names the
 # three files of the `teko` package that teach the language on top of it, so
-# `build/teko` is teko 0.4.0 itself, built here from the dependency's own
+# `build/teko` is teko 0.4.1 itself, built here from the dependency's own
 # sources. Then `tests/strings_test.tk` is compiled BY that binary and linked,
 # and its exit code is the assertion.
 #
@@ -20,7 +20,7 @@
 # `<name>_init()`, and the project decides the order of initialisation.
 #
 # The `teko` tree the modules come from is `deps/teko`, a checkout of
-# teko-lang at v0.4.0 that `mc.lock` pins by tree hash -- README.md § Working
+# teko-lang at v0.4.1 that `mc.lock` pins by tree hash -- README.md § Working
 # on the library has the one command that puts it there.
 #
 # `os = "linux"` / `arch = "x86_64"` matches the CI runner (ubuntu-latest); a
@@ -59,4 +59,4 @@ args = ["-o", "{out}", "{obj}"]
 tolerance = 1.0
 
 [deps]
-teko = "0.4.0"
+teko = "0.4.1"
