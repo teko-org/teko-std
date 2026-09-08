@@ -2,7 +2,7 @@
 
 [[package]]
 name        = "teko"
-version     = "0.4.2"
+version     = "0.4.3"
 lib         = "lib/rt.tk"
 sha256      = "3e6feff8e981912423654dbc12ca6d4948efa89d21ea02128b7636f0683791b1"
 deps        = []

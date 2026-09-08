@@ -25,11 +25,11 @@ name: Release
 #
 # HOW TO CUT A VERSION
 #
-#   git tag -a v0.4.2 -m "teko_std 0.4.2" && git push origin v0.4.2
+#   git tag -a v0.4.3 -m "teko_std 0.4.3" && git push origin v0.4.3
 #
 # or, for a tag that already exists:
 #
-#   gh workflow run release.yml --ref v0.4.2
+#   gh workflow run release.yml --ref v0.4.3
 #
 # Both roads end in the same four jobs; the ref the run is dispatched ON is the
 # version, and there is no VERSION file and no `version` input to trust.
