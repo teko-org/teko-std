@@ -11,7 +11,7 @@
 # Two steps come out of a build. First the taught compiler: `[compiler].core`
 # names the part of `mc` that has no target and `[compiler].modules` names the
 # three files of the `teko` package that teach the language on top of it, so
-# `build/teko` is teko 0.6.1 itself, built here from the dependency's own
+# `build/teko` is teko 0.7.0 itself, built here from the dependency's own
 # sources. Then `tests/strings_test.tk` is compiled BY that binary and linked,
 # and its exit code is the assertion.
 #
@@ -61,4 +61,4 @@ args = ["-o", "{out}", "{obj}"]
 tolerance = 1.0
 
 [deps]
-teko = "0.6.1"
+teko = "0.7.0"
