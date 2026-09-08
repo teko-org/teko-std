@@ -28,7 +28,7 @@
 
 [package]
 name      = "teko_std"
-version   = "0.5.0"
+version   = "0.6.0"
 language  = "teko"
 licence   = "MIT OR Apache-2.0"
 modules   = ["<teko/core_teko.mc>", "<teko/teko.tk>", "<teko/user.mc>"]
@@ -38,4 +38,4 @@ files     = [
 check     = ["strings.tk"]
 
 [deps]
-teko = "0.5.0"
+teko = "0.6.0"
