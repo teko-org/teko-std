@@ -11,6 +11,13 @@
 # `<teko_std>` has no answer and is refused, which is the agreement
 # teko's own docs/specs/packages.md records.
 #
+# `modules` names the ONE module the registry's validator loads over its own
+# `<mc/core>` to build the taught compiler: `teko.tk`, teko's language as hook
+# modules, which exports `teko_init()` and defines no `main` and includes no
+# core -- `core_teko.mc` (teko's standalone entry over `<mc/core_min>`, with
+# its own `main`) is not a module and must not be named here (registry job 31
+# refused every tag with `function declared twice` when it was).
+#
 # `version`, `language` and `modules` are keys the registry reads and `mc`
 # ignores today (it ignores unknown [package] keys). `version` is what the
 # registry's R3 compares a tag against: `[package].version` must equal the
@@ -28,14 +35,12 @@
 
 [package]
 name      = "teko_std"
-version   = "0.7.0"
+version   = "0.7.1"
 language  = "teko"
 licence   = "MIT OR Apache-2.0"
-modules   = ["<teko/core_teko.mc>", "<teko/teko.tk>", "<teko/user.mc>"]
-files     = [
-    "strings.tk",
-]
-check     = ["strings.tk"]
+modules = ["<teko/teko.tk>"]
+files = ["strings.tk"]
+check = ["strings.tk"]
 
 [deps]
 teko = "0.7.0"

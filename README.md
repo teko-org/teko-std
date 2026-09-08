@@ -12,8 +12,9 @@ One **flat** library, and every entry is named in full — the extension is spel
 because `mc` drops a trailing `.mc` from an angle-bracket name and does not drop `.tk`.
 There is no `lib` key in the manifest, so a bare `<teko_std>` has no answer and is refused.
 
-The library is versioned in **lockstep** with the compiler: `teko_std` 0.7.0 is the library
-`teko` 0.7.0 compiles, and the two are released together.
+The library is versioned in **lockstep** with the compiler at the minor: `teko_std` 0.7.x is
+the library `teko` 0.7.y compiles, the minor moves together, and a patch of either moves on
+its own (this 0.7.1 is a manifest fix over `teko` 0.7.0).
 
 ## What is in it
 
@@ -31,7 +32,7 @@ own build config and includes the library by package name:
 ```toml
 [deps]
 teko     = "0.7.0"
-teko_std = "0.7.0"
+teko_std = "0.7.1"
 
 [compiler]
 core    = "<mc/core_min>"
