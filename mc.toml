@@ -11,12 +11,15 @@
 # `<teko_std>` has no answer and is refused, which is the agreement
 # teko's own docs/specs/packages.md records.
 #
-# `modules` names the ONE module the registry's validator loads over its own
-# `<mc/core>` to build the taught compiler: `teko.tk`, teko's language as hook
-# modules, which exports `teko_init()` and defines no `main` and includes no
-# core -- `core_teko.mc` (teko's standalone entry over `<mc/core_min>`, with
-# its own `main`) is not a module and must not be named here (registry job 31
-# refused every tag with `function declared twice` when it was).
+# `modules` names what the registry's validator loads over its own `<mc/core>`
+# to build the taught compiler: `teko.tk`, teko's language as hook modules,
+# which exports `teko_init()` and defines no `main` and includes no core, and
+# `user.mc`, the three-line `user_init` that calls it -- the validator's check
+# project brings none of its own (registry job 33: `mc/cli:295: call to unknown
+# function`, the core calling a `user_init` nobody defined). `core_teko.mc`
+# (teko's standalone entry over `<mc/core_min>`, with its own `main`) is not a
+# module and must not be named here (job 31 refused every tag with `function
+# declared twice` when it was).
 #
 # `version`, `language` and `modules` are keys the registry reads and `mc`
 # ignores today (it ignores unknown [package] keys). `version` is what the
@@ -35,10 +38,10 @@
 
 [package]
 name      = "teko_std"
-version   = "0.7.1"
+version   = "0.7.2"
 language  = "teko"
 licence   = "MIT OR Apache-2.0"
-modules = ["<teko/teko.tk>"]
+modules = ["<teko/teko.tk>", "<teko/user.mc>"]
 files = ["strings.tk"]
 check = ["strings.tk"]
 
