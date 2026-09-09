@@ -12,9 +12,9 @@ One **flat** library, and every entry is named in full — the extension is spel
 because `mc` drops a trailing `.mc` from an angle-bracket name and does not drop `.tk`.
 There is no `lib` key in the manifest, so a bare `<teko_std>` has no answer and is refused.
 
-The library is versioned in **lockstep** with the compiler at the minor: `teko_std` 0.8.x is
-the library `teko` 0.8.y compiles, the minor moves together, and a patch of either moves on
-its own (this 0.7.2 is a manifest fix over `teko` 0.8.0).
+The library is versioned in **lockstep** with the compiler at the minor: `teko_std` 0.9.x is
+the library `teko` 0.9.y compiles, the minor moves together, and a patch of either moves on
+its own (this 0.7.2 is a manifest fix over `teko` 0.9.0).
 
 ## What is in it
 
@@ -31,8 +31,8 @@ own build config and includes the library by package name:
 
 ```toml
 [deps]
-teko     = "0.8.0"
-teko_std = "0.8.0"
+teko     = "0.9.0"
+teko_std = "0.9.0"
 
 [compiler]
 core    = "<mc/core_min>"
@@ -55,7 +55,7 @@ the project's own.
 ## Working on the library
 
 `mc` is pinned by [`MC_VERSION`](MC_VERSION), and the pin of a library is the pin of the
-compiler tag it is locked to: `teko` v0.8.0 carries `MC_VERSION` 0.15.23 and is built by
+compiler tag it is locked to: `teko` v0.9.0 carries `MC_VERSION` 0.15.23 and is built by
 that release, so this repository names the same one. It rises when the `teko` tag in
 [`mc.lock`](mc.lock) rises.
 
@@ -136,7 +136,7 @@ publishes only a tag that has one, never a bare tag (mc's own
 § 4). Announcing that release to the registry needs, once and by the owner:
 
 1. the repository registered at <https://minicompiler.dev/me> (§ 3 of the same guide);
-2. its dependency, `teko` (`[deps] teko = "0.8.0"`, the pinned version above), registered and
+2. its dependency, `teko` (`[deps] teko = "0.9.0"`, the pinned version above), registered and
    published first — the registry resolves `teko_std`'s own `[deps]` the same way `mc pkg`
    does, so a consumer's build fails until `teko` itself is a published package;
 3. the repository variable `TEKO_REGISTRY_PUBLISH` set to `1` — without it the release still
