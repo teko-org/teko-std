@@ -40,7 +40,7 @@ A change lands through a pull request with CI green — the required check is
 
 ## Version
 
-`vX.Y.Z`, and its minor moves **with `teko`**: `teko_std` 0.8.x is the library `teko` 0.8.y
+`vX.Y.Z`, and its minor moves **with `teko`**: `teko_std` 0.9.x is the library `teko` 0.9.y
 compiles. Raising the dependency means raising the version row in `mc.lock`, its tree hash,
 and `MC_VERSION` to the `mc` release that teko tag is built by.
 
