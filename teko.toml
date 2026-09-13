@@ -61,4 +61,4 @@ args = ["-o", "{out}", "{obj}"]
 tolerance = 1.0
 
 [deps]
-teko = "0.9.0"
+teko = "0.10.0"
