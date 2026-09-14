@@ -34,12 +34,14 @@
 
 [package]
 name      = "teko_std"
-version   = "0.12.0"
+version   = "0.12.1"
 language  = "teko"
 licence   = "MIT OR Apache-2.0"
 modules = ["<teko/teko.tk>", "<teko/user.mc>"]
 files = ["strings.tk"]
 check = ["strings.tk"]
+# the oldest mc whose hook API this library's modules still build against (mc docs/reference/packages.md § "The minimum mc version")
+mc = "0.17.0"
 
 [deps]
-teko = "0.12.0"
+teko = "0.12.5"
