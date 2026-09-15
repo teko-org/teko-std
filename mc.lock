@@ -2,8 +2,8 @@
 
 [[package]]
 name        = "teko"
-version     = "0.17.1"
+version     = "0.18.0"
 lib         = "lib/rt.tk"
-sha256      = "7127d42e890e2b412c00c7fbf672989b4a299c62305908b197d16ded9fe4d477"
+sha256      = "bc1090a3ebacb540b5833bdc707b82ec26c979dcdd6fa2ae029df88fcd83e0f1"
 deps        = []
 permissions = []
