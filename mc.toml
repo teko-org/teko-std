@@ -44,4 +44,4 @@ check = ["strings.tk"]
 mc = "0.17.0"
 
 [deps]
-teko = "0.13.1"
+teko = "0.13.2"
