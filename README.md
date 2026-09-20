@@ -31,8 +31,8 @@ own build config and includes the library by package name:
 
 ```toml
 [deps]
-teko     = "0.21.0"
-teko_std = "0.21.0"
+teko     = "0.22.0"
+teko_std = "0.22.0"
 
 [compiler]
 core    = "<mc/core_min>"
@@ -55,7 +55,7 @@ the project's own.
 ## Working on the library
 
 `mc` is pinned by [`MC_VERSION`](MC_VERSION), and the pin of a library is the pin of the
-compiler tag it is locked to: `teko` v0.21.0 carries `MC_VERSION` 1.0.1 and is built by
+compiler tag it is locked to: `teko` v0.22.0 carries `MC_VERSION` 1.0.1 and is built by
 that release, so this repository names the same one. It rises when the `teko` tag in
 [`mc.lock`](mc.lock) rises.
 
@@ -136,7 +136,7 @@ publishes only a tag that has one, never a bare tag (mc's own
 § 4). Announcing that release to the registry needs, once and by the owner:
 
 1. the repository registered at <https://minicompiler.dev/me> (§ 3 of the same guide);
-2. its dependency, `teko` (`[deps] teko = "0.21.0"`, the pinned version above), registered and
+2. its dependency, `teko` (`[deps] teko = "0.22.0"`, the pinned version above), registered and
    published first — the registry resolves `teko_std`'s own `[deps]` the same way `mc pkg`
    does, so a consumer's build fails until `teko` itself is a published package;
 3. the repository variable `TEKO_REGISTRY_PUBLISH` set to `1` — without it the release still
